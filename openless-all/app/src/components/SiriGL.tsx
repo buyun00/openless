@@ -36,6 +36,8 @@ interface SiriGLProps {
   speed?: number;
   /** orb 专用：true = 六点向圆心合并成一颗圆（插入完成的收尾动画）。 */
   merging?: boolean;
+  /** Saturated capsule palette with restrained white highlights. */
+  colorful?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -86,6 +88,12 @@ void main(){
   float env=cos(PI*0.5*min(abs(0.9*xN),1.0)); env*=env;
   float A1=(AMPLITUDE*mix(0.14,1.0,dv))+0.01*low*LOW_AMP;
   float A2=A1+mid*MID_ABAMP+high*HIGH_ABAMP;
+#ifdef CAPSULE_COLOR
+  // Give speech a clear vertical envelope even at the capsule's half-size scale.
+  float voiceHeight=mix(1.0,2.8,dv);
+  A1*=voiceHeight;
+  A2*=voiceHeight;
+#endif
   float AB=(ABERRATION+mid*MID_ABER+high*HIGH_ABER)*res;
   float th=mix(0.1,0.01*THICKNESS,res);
   float inten=mix(0.1,0.01*(INTENSITY+low*LOW_INT),res);
@@ -113,7 +121,11 @@ void main(){
   /* 原版 boost=(1-res)*(14*low+4)：汇聚光点的大光晕会铺满透明窗口、在窗口
      边界被硬裁出直边。压到含蓄水平 —— 转场一切向内收，不向外扩。 */
   float boost=(1.0-res)*(3.0*low+1.2);
+#ifdef CAPSULE_COLOR
+  col+=0.08*inten*(lorM+boost)/(sqrt(dM*dM+soft*soft)+th);
+#else
   col+=0.5*inten*(lorM+boost)/(sqrt(dM*dM+soft*soft)+th);
+#endif
   col=pow(max(col,0.0),vec3(1.5));
   float emT=clamp((abs(yScreen)-1.0+EDGE_INSET)/(-max(EDGE_MASK,1e-4)),0.0,1.0);
   float em=emT*emT*(3.0-2.0*emT);
@@ -121,6 +133,10 @@ void main(){
   /* 遮罩全程生效（原版 res→0 时遮罩失效会让收拢中段的残波漏到两侧）。 */
   col*=em*gauss;
   col*=mix(0.55,1.0,res);
+#ifdef CAPSULE_COLOR
+  // Compress highlights without clipping the spectrum to white.
+  col=0.92*col/max(1.0,max(col.r,max(col.g,col.b)));
+#endif
   float a=clamp(max(col.r,max(col.g,col.b)),0.0,1.0);
   gl_FragColor=vec4(col,a);
 }`;
@@ -139,7 +155,11 @@ const float TAU=6.28318530718;
 const int N=6;
 const float SMOOTH_K=0.08, INTENSITY=0.0025, FALLOFF_P=1.35, FADE_START=0.02, FADE_END=0.56;
 const float ABERR=0.005; const vec3 SPECTRAL=vec3(0.0,0.5,1.0)*ABERR;
+#ifdef CAPSULE_COLOR
+const float HUE_SPEED=0.06, COLOR_K=32.0, SAT=0.88, HUE_SPAN=0.85;
+#else
 const float HUE_SPEED=0.06, COLOR_K=0.5, SAT=0.01, HUE_SPAN=0.667;
+#endif
 const float MERGE_PERIOD=6.0, STAGGER=0.33, HOLD=0.0;
 const float W=4.6, L=3.2, PIERCE=0.12, RECOIL=0.035, REC_LAG=0.11;
 const float GATHER_R=0.008, GATHER_DIM=0.85;
@@ -197,7 +217,11 @@ vec3 scene(vec2 p,float t){
                 smin(total3.g,sdG,SMOOTH_K),
                 smin(total3.b,sdB,SMOOTH_K));
     float hue=fract(fi/float(N)+t*HUE_SPEED)*HUE_SPAN;
+#ifdef CAPSULE_COLOR
+    vec3 dotCol=vec3(0.18,0.48,0.86);
+#else
     vec3 dotCol=mix(vec3(1.0),hue2rgb(hue),SAT);
+#endif
     float w=exp(-sdG*COLOR_K);
     cAcc+=w*dotCol;
     wAcc+=w;
@@ -290,6 +314,7 @@ export function SiriGL({
   warmupMs,
   speed,
   merging,
+  colorful = false,
   className,
   style,
 }: SiriGLProps) {
@@ -343,7 +368,11 @@ export function SiriGL({
     };
 
     const vs = compile(gl.VERTEX_SHADER, VERTEX_SRC);
-    const fs = compile(gl.FRAGMENT_SHADER, mode === 'wave' ? WAVE_FRAGMENT_SRC : ORB_FRAGMENT_SRC);
+    const fs = compile(
+      gl.FRAGMENT_SHADER,
+      (colorful ? '#define CAPSULE_COLOR\n' : '') +
+        (mode === 'wave' ? WAVE_FRAGMENT_SRC : ORB_FRAGMENT_SRC),
+    );
     if (!vs || !fs) {
       canvas.remove();
       return undefined;
@@ -468,7 +497,7 @@ export function SiriGL({
       gl.getExtension('WEBGL_lose_context')?.loseContext();
       canvas.remove();
     };
-  }, [mode]);
+  }, [mode, colorful]);
 
   return (
     <div

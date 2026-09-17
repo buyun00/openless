@@ -4,6 +4,7 @@ import { SiriGL } from './SiriGL';
 import { getCapsulePillMetrics } from '../lib/capsuleLayout';
 import type { CapsuleState } from '../lib/types';
 import type { OS } from './WindowChrome';
+import './CapsuleStyles.css';
 
 export interface VoiceOrbStageProps {
   os: OS;
@@ -17,12 +18,12 @@ export interface VoiceOrbStageProps {
 }
 
 /**
- * 纯光效舞台（siri-glsl 完整克隆，无壳无按钮无底）：
+ * 带深色圆角外壳的光效舞台：
  *   - recording：彩虹光谱声波横贯舞台，振幅随真实麦克风电平起伏；
- *   - transcribing / polishing：波形从两端向中间收缩汇聚，流体圆点环淡入加速转动；
- *   - done / cancelled：转速回落标准，六点合并成中央一颗圆，由外层 capsule-out 淡出；
+ *   - transcribing / polishing：波形收拢后，由单色呼吸圆点表示处理中；
+ *   - done / cancelled：立即卸载光效，不保留收尾圆点；
  *   - error：冻结光效 + 浮一行发光红字说明原因（唯一保留的文字信息）。
- * 刻意没有任何垫底/暗晕（用户拍板）：白底界面上宁可对比度弱，也不要黑色遮挡。
+ * 外壳与细边框让光效在浅色、深色桌面背景上都有清晰边界。
  */
 export function VoiceOrbStage({
   os,
@@ -56,6 +57,9 @@ export function VoiceOrbStage({
     return () => clearTimeout(timer);
   }, [isOrb]);
 
+  // Completion is already visible in the inserted text; do not linger on a final dot.
+  if (state === 'done' || state === 'cancelled' || state === 'idle') return null;
+
   return (
     <div
       style={{
@@ -65,44 +69,76 @@ export function VoiceOrbStage({
         fontFamily: 'var(--ol-font-sans)',
         position: 'relative',
         pointerEvents: 'none',
+        // Keep the transparent host and its positioning stable; halve the visible stage.
+        transform: 'scale(0.5)',
+        transformOrigin: 'center',
       }}
     >
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          boxSizing: 'border-box',
+          width: isOrb ? 20 : 230,
+          height: isOrb ? 20 : 64,
+          borderRadius: 64,
+          background: 'rgba(22, 28, 40, 0.92)',
+          border: '2px solid rgba(150, 174, 210, 0.45)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.22), inset 0 2px 0 rgba(255, 255, 255, 0.05)',
+          opacity: isOrb ? 0 : 1,
+          transition: 'width .35s ease, height .35s ease, opacity .25s ease .15s',
+        }}
+      />
       {waveAlive && (
-        <SiriGL
-          mode="wave"
-          level={level}
-          resolved={!isOrb}
-          warming={warming}
-          warmupMs={warmupMs}
+        <div
           style={{
             position: 'absolute',
             inset: 0,
-            width: '100%',
-            height: '100%',
-            // 收缩汇聚进行时波形保持可见，收成中央光点后再淡出，与圆点环的淡入交叠。
-            opacity: isOrb ? 0 : 1,
-            transition: isOrb ? 'opacity .6s ease-out .55s' : 'opacity .25s ease-out',
+            // Clip to the shell's inner edge, including while it contracts into a dot.
+            clipPath: `inset(${(metrics.height - (isOrb ? 16 : 60)) / 2}px ${(metrics.width - (isOrb ? 16 : 226)) / 2}px round 32px)`,
+            transition: 'clip-path .35s ease',
           }}
-        />
+        >
+          <SiriGL
+            mode="wave"
+            colorful
+            level={level}
+            resolved={!isOrb}
+            warming={warming}
+            warmupMs={warmupMs}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              // Narrow the waveform to fit, while retaining most of its vertical motion.
+              transform: 'scale(0.55, 0.85)',
+              transformOrigin: 'center',
+              // 收缩汇聚进行时波形保持可见，收成中央光点后再淡出，与圆点环的淡入交叠。
+              opacity: isOrb ? 0 : 1,
+              transition: isOrb ? 'opacity .6s ease-out .55s' : 'opacity .25s ease-out',
+            }}
+          />
+        </div>
       )}
       {isOrb && (
-        <SiriGL
-          mode="orb"
-          // 思考中（LLM 接收）加速转动；插入/取消/出错时回落到标准速度，
-          // 同时六点合并成中央一颗圆，随外层淡出一起消失。
-          speed={state === 'transcribing' || state === 'polishing' ? 1.5 : 1.0}
-          merging={state !== 'transcribing' && state !== 'polishing'}
+        <div
           style={{
             position: 'absolute',
             left: '50%',
             top: '50%',
-            width: 170,
-            height: 170,
-            marginLeft: -85,
-            marginTop: -85,
-            animation: 'siri-orb-in .7s ease-out .3s both',
+            width: 20,
+            height: 20,
+            marginLeft: -10,
+            marginTop: -10,
+            animation: 'siri-orb-in .3s ease-out .55s both',
           }}
-        />
+        >
+          <span className="ol-siri-processing-dot" />
+        </div>
       )}
       {state === 'error' && <span style={errorGlowTextStyle}>{message || t('capsule.error')}</span>}
     </div>
