@@ -39,7 +39,7 @@ interface Devices {
 export function djiBatteryLabel(gauge: number | null): string {
   return gauge === null || gauge < 1 || gauge > 7
     ? '电量未知'
-    : `${8 - gauge}/7 格 · ${['满电', '较充足', '中高', '中等', '偏低', '低电量', '即将耗尽'][gauge - 1]}`;
+    : ['满电', '较充足', '中高', '中等', '偏低', '低电量', '即将耗尽'][gauge - 1];
 }
 
 const OPTIONS: Record<string, { label: string; values: [string, string][] }> = {
@@ -192,10 +192,9 @@ export function PersonalDeviceCards() {
     <section className="ol-personal-devices" aria-label="我的设备">
       <article className="ol-device-card">
         <div className="ol-device-heading">
-          <div>
-            <span className="ol-device-kicker">蓝牙遥控器</span>
-            <h3>IINE_keyboard</h3>
-          </div>
+          <h3>
+            <span className="ol-device-kind">遥控器</span>IINE_keyboard
+          </h3>
           <span className="ol-device-status" data-connected={remoteConnected === true && !error}>
             {error
               ? '读取失败'
@@ -210,7 +209,20 @@ export function PersonalDeviceCards() {
         </div>
         <div className="ol-device-charge">
           <strong>{!error && remote?.battery != null ? `${remote.battery}%` : '—'}</strong>
-          <span>{remoteConnected ? '系统报告电量' : '上次系统电量'}</span>
+          <span>
+            {error || remote?.battery == null
+              ? '电量未知'
+              : remote.battery === 100
+                ? '满电'
+                : remote.battery > 60
+                  ? '电量充足'
+                  : remote.battery > 40
+                    ? '电量中等'
+                    : remote.battery > 20
+                      ? '电量偏低'
+                      : '低电量'}
+            {!error && remote?.battery != null && !remoteConnected ? ' · 上次读数' : ''}
+          </span>
         </div>
         <div
           className="ol-device-battery-track"
@@ -228,16 +240,14 @@ export function PersonalDeviceCards() {
         >
           <div style={{ width: `${!error ? (remote?.battery ?? 0) : 0}%` }} />
         </div>
-        <p className="ol-device-note">通过 Windows 蓝牙读取 · 每 30 秒检查</p>
         {remote?.error && <p className="ol-device-error">{remote.error}</p>}
       </article>
 
       <article className="ol-device-card">
         <div className="ol-device-heading">
-          <div>
-            <span className="ol-device-kicker">无线麦克风</span>
-            <h3>DJI Mic Mini 2</h3>
-          </div>
+          <h3>
+            <span className="ol-device-kind">麦克风</span>DJI Mic Mini 2
+          </h3>
           <span className="ol-device-status" data-connected={connected}>
             {connected ? '接收器已连接' : data ? '未连接' : '读取中'}
           </span>
@@ -249,49 +259,52 @@ export function PersonalDeviceCards() {
                 <div key={index} className="ol-device-tx">
                   <div className="ol-device-tx-line">
                     <span>发射器 {index + 1}</span>
-                    <strong>{tx ? djiBatteryLabel(tx.battery) : '未连接'}</strong>
-                    <span>{tx?.charging ? '充电中' : ''}</span>
+                    <strong>
+                      {tx ? djiBatteryLabel(tx.battery) : '未连接'}
+                      {tx?.charging ? ' · 充电中' : ''}
+                    </strong>
+                    <span className="ol-device-gauge-count">
+                      {tx?.battery != null && tx.battery >= 1 && tx.battery <= 7
+                        ? `${8 - tx.battery}/7`
+                        : '—'}
+                    </span>
                   </div>
-                  <div
-                    className="ol-device-gauge"
-                    aria-label={
-                      tx ? `发射器 ${index + 1}：${djiBatteryLabel(tx.battery)}` : '未连接'
-                    }
-                    data-charge={
-                      tx?.battery == null || tx.battery < 1 || tx.battery > 7
-                        ? 'unknown'
-                        : tx.battery <= 3
-                          ? 'high'
-                          : tx.battery === 4
-                            ? 'medium'
-                            : tx.battery === 5
-                              ? 'low'
-                              : 'critical'
-                    }
-                  >
-                    {Array.from({ length: 7 }, (_, i) => (
-                      <i
-                        key={i}
-                        data-filled={
-                          tx?.battery != null &&
-                          tx.battery >= 1 &&
-                          tx.battery <= 7 &&
-                          i < 8 - tx.battery
-                        }
-                      />
-                    ))}
+                  <div className="ol-device-gauge-row">
+                    <div
+                      className="ol-device-gauge"
+                      aria-label={
+                        tx ? `发射器 ${index + 1}：${djiBatteryLabel(tx.battery)}` : '未连接'
+                      }
+                      data-charge={
+                        tx?.battery == null || tx.battery < 1 || tx.battery > 7
+                          ? 'unknown'
+                          : tx.battery <= 3
+                            ? 'high'
+                            : tx.battery === 4
+                              ? 'medium'
+                              : tx.battery === 5
+                                ? 'low'
+                                : 'critical'
+                      }
+                    >
+                      {Array.from({ length: 7 }, (_, i) => (
+                        <i
+                          key={i}
+                          data-filled={
+                            tx?.battery != null &&
+                            tx.battery >= 1 &&
+                            tx.battery <= 7 &&
+                            i < 8 - tx.battery
+                          }
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-            <p className="ol-device-note">
-              电量格数表示档位，不等于容量百分比 · 接收器 USB 供电
-              {status.gain_dial != null
-                ? ` · 增益 ${status.gain_dial > 0 ? '+' : ''}${status.gain_dial} dB`
-                : ''}
-            </p>
             <details className="ol-device-settings">
-              <summary>麦克风设置与设备信息</summary>
+              <summary>麦克风设置</summary>
               <div className="ol-device-settings-grid">
                 {Object.keys(OPTIONS)
                   .filter((id) => id !== 'voice-tone')
@@ -324,6 +337,12 @@ export function PersonalDeviceCards() {
               {status.settings['safety-track'] === 'on' && (
                 <p className="ol-device-note">安全音轨已开启，声道切换暂不可用。</p>
               )}
+              <p className="ol-device-note">
+                电量格数表示档位，不等于容量百分比 · 接收器 USB 供电
+                {status.gain_dial != null
+                  ? ` · 增益 ${status.gain_dial > 0 ? '+' : ''}${status.gain_dial} dB`
+                  : ''}
+              </p>
               <p className="ol-device-note">
                 接收器固件 {status.rx?.firmware ?? '读取中'}
                 {status.tx

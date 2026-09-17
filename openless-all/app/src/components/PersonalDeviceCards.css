@@ -1,13 +1,15 @@
 .ol-personal-devices {
   display: grid;
-  align-items: start;
+  align-items: stretch;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   flex-shrink: 0;
 }
 .ol-device-card {
   min-width: 0;
-  padding: 16px;
+  padding: 12px 14px;
+  min-height: 116px;
+  box-sizing: border-box;
   border-radius: 14px;
   border: 1px solid var(--ol-line);
   background: var(--ol-surface);
@@ -20,13 +22,12 @@
   gap: 8px;
   flex-wrap: wrap;
 }
-.ol-device-kicker,
 .ol-device-note {
   font-size: 11px;
   color: var(--ol-ink-3);
 }
 .ol-device-card h3 {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 15px;
   font-weight: 650;
   color: var(--ol-ink);
@@ -38,6 +39,25 @@
   background: var(--ol-surface-2);
   color: var(--ol-ink-3);
 }
+.ol-device-kind {
+  margin-right: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ol-ink-3);
+}
+.ol-device-gauge-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  margin-top: 6px;
+}
+.ol-device-gauge-count {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ol-ink-3);
+}
 .ol-device-status[data-connected='true'] {
   color: #278765;
   background: rgb(39 135 101 / 10%);
@@ -46,10 +66,10 @@
   display: flex;
   align-items: baseline;
   gap: 10px;
-  margin: 14px 0 8px;
+  margin: 8px 0 6px;
 }
 .ol-device-charge strong {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 650;
   color: var(--ol-ink);
 }
@@ -76,21 +96,26 @@
 }
 .ol-device-transmitters {
   display: flex;
-  gap: 20px;
-  margin-top: 16px;
+  gap: 14px;
+  margin-top: 10px;
 }
 .ol-device-tx {
   flex: 1;
   min-width: 0;
 }
 .ol-device-tx-line {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   font-size: 11px;
   color: var(--ol-ink-2);
 }
+.ol-device-tx-line strong {
+  text-align: center;
+}
 .ol-device-gauge {
   display: flex;
+  flex: 0 0 auto;
   gap: 3px;
-  margin-top: 8px;
 }
 .ol-device-gauge i {
   height: 6px;
@@ -114,9 +139,7 @@
   background: #dc5353;
 }
 .ol-device-settings {
-  margin-top: 12px;
-  border-top: 1px solid var(--ol-line);
-  padding-top: 10px;
+  margin-top: 8px;
 }
 .ol-device-settings summary {
   cursor: pointer;

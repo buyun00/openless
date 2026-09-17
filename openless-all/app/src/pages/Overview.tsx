@@ -255,6 +255,7 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
   return (
     // Device settings may expand; allow the overview to scroll in short windows.
     <div
+      className="ol-noscrollbar"
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -388,14 +389,14 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
         </div>
       </div>
 
-      {/* 底部行吃掉剩余高度：周期卡图表区自适应拉高，最近识别列表内部滚动。 */}
+      {/* Keep both cards readable; overflow belongs to the overview, not compressed grid rows. */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: mobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1.4fr)',
+          gridAutoRows: 'minmax(320px, auto)',
           gap: 12,
-          flex: 1,
-          minHeight: 0,
+          flex: '0 0 auto',
         }}
       >
         <PeriodMetricsCard
@@ -429,7 +430,10 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
               {t('overview.recentAll')}
             </Btn>
           </div>
-          <div className="ol-thinscroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <div
+            className="ol-thinscroll"
+            style={{ flex: 1, minHeight: 0, maxHeight: 320, overflowY: 'auto' }}
+          >
             {historyError ? (
               <div
                 style={{
