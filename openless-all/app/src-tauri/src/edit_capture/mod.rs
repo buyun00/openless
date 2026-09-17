@@ -66,25 +66,10 @@ pub fn get_edit_capture(window: tauri::Window) -> Result<CaptureState, String> {
     Ok(state().lock().unwrap().clone())
 }
 #[tauri::command]
-pub fn configure_edit_capture(
-    window: tauri::Window,
-    enabled: bool,
-    clear: bool,
-) -> Result<CaptureState, String> {
+pub fn clear_edit_capture(window: tauri::Window) -> Result<CaptureState, String> {
     main_only(&window)?;
     let mut state = state().lock().unwrap();
-    GENERATION.fetch_add(1, Ordering::SeqCst);
-    state.enabled = enabled;
-    state.status = if enabled {
-        "等待下一次听写"
-    } else {
-        "已停止捕获"
-    }
-    .into();
-    state.app.clear();
-    if clear {
-        state.records.clear();
-    }
+    state.records.clear();
     learning::save(&state)?;
     Ok(state.clone())
 }

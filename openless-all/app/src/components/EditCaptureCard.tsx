@@ -55,10 +55,10 @@ export function EditCaptureCard() {
       clearInterval(timer);
     };
   }, [enabled]);
-  async function configure(on: boolean, clear = false) {
+  async function clearRecords() {
     setPending(true);
     try {
-      setState(await invoke<CaptureState>('configure_edit_capture', { enabled: on, clear }));
+      setState(await invoke<CaptureState>('clear_edit_capture'));
       setError('');
     } catch (e) {
       setError(String(e));
@@ -125,16 +125,8 @@ export function EditCaptureCard() {
             <Btn
               size="sm"
               variant="ghost"
-              disabled={pending || !state}
-              onClick={() => void configure(!state?.enabled)}
-            >
-              {state?.enabled ? '暂停捕获' : '开启捕获'}
-            </Btn>
-            <Btn
-              size="sm"
-              variant="ghost"
               disabled={pending || !state?.records.length}
-              onClick={() => void configure(!!state?.enabled, true)}
+              onClick={() => void clearRecords()}
             >
               清空修改记录
             </Btn>
@@ -144,11 +136,6 @@ export function EditCaptureCard() {
       {error && (
         <p role="alert" style={{ fontSize: 12, color: 'var(--ol-ink-2)' }}>
           {error}
-        </p>
-      )}
-      {!state?.enabled && state && (
-        <p style={{ fontSize: 12, color: 'var(--ol-ink-3)', margin: '0 0 12px' }}>
-          捕获已暂停，可在右上角菜单中开启。
         </p>
       )}
       <div

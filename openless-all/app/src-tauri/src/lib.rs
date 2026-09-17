@@ -184,7 +184,7 @@ macro_rules! app_invoke_handler_desktop {
         tauri::generate_handler![
             personal_devices::get_personal_devices,
             edit_capture::get_edit_capture,
-            edit_capture::configure_edit_capture,
+            edit_capture::clear_edit_capture,
             edit_capture::learning::undo_edit_learning,
             personal_devices::set_personal_microphone,
             commands::get_startup_snapshot,

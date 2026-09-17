@@ -71,6 +71,7 @@ pub(super) fn load(mut default: CaptureState) -> CaptureState {
                 s.records.iter().map(|r| r.session).max().unwrap_or(0) + 1,
                 Ordering::SeqCst,
             );
+            s.enabled = cfg!(target_os = "windows");
             s.app.clear();
             s.supported = cfg!(target_os = "windows");
             s.status = if s.enabled {
@@ -317,7 +318,13 @@ pub(super) fn selftest() {
         backend.list_vocabulary().unwrap().is_empty(),
         "one session must never count twice"
     );
+    {
+        let mut s = super::state().lock().unwrap();
+        s.enabled = false; // A legacy saved off switch must no longer disable capture.
+        save(&s).unwrap();
+    }
     let loaded = load(super::state().lock().unwrap().clone());
+    assert!(loaded.enabled);
     assert_eq!(loaded.records.len(), 1);
     *super::state().lock().unwrap() = loaded;
     capture(2, "青语", "轻羽");
