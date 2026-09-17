@@ -108,6 +108,11 @@ pub fn run_worker_if_requested() {
     let mut args = std::env::args().skip(1);
     let mode = args.next();
     #[cfg(debug_assertions)]
+    if mode.as_deref() == Some("--openless-learning-selftest") {
+        super::learning::selftest();
+        std::process::exit(0);
+    }
+    #[cfg(debug_assertions)]
     if mode.as_deref() == Some("--openless-edit-capture-test") {
         let window = args
             .next()

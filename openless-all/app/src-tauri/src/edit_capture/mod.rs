@@ -1,5 +1,8 @@
-//! Opt-in, local-only Windows edit-capture experiment. No learning or vocabulary writes.
+//! Local Windows edit capture and repeated-word vocabulary learning.
 mod anchor;
+mod learner;
+pub(crate) mod learning;
+pub(crate) use learning::initialize;
 #[cfg(target_os = "windows")]
 mod windows;
 use serde::{Deserialize, Serialize};
@@ -10,7 +13,7 @@ use std::sync::{
 #[cfg(target_os = "windows")]
 pub use windows::run_worker_if_requested;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CaptureState {
     enabled: bool,
@@ -18,13 +21,17 @@ pub struct CaptureState {
     status: String,
     app: String,
     records: Vec<Record>,
+    #[serde(default)]
+    learning: Vec<learning::LearnedWord>,
 }
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Record {
     session: u64,
     app: String,
     before: String,
     after: String,
+    #[serde(default)]
+    finalized: bool,
 }
 #[derive(Serialize, Deserialize)]
 pub(super) struct Snapshot {
@@ -36,13 +43,14 @@ static STATE: OnceLock<Mutex<CaptureState>> = OnceLock::new();
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 fn state() -> &'static Mutex<CaptureState> {
     STATE.get_or_init(|| {
-        Mutex::new(CaptureState {
-            enabled: false,
+        Mutex::new(learning::load(CaptureState {
+            enabled: cfg!(target_os = "windows"),
             supported: cfg!(target_os = "windows"),
-            status: "未开启".into(),
+            status: "自动捕获已开启；等待下一次听写".into(),
             app: String::new(),
             records: vec![],
-        })
+            learning: vec![],
+        }))
     })
 }
 fn main_only(window: &tauri::Window) -> Result<(), String> {
@@ -77,6 +85,7 @@ pub fn configure_edit_capture(
     if clear {
         state.records.clear();
     }
+    learning::save(&state)?;
     Ok(state.clone())
 }
 pub fn cancel_watch() {
@@ -113,6 +122,7 @@ pub fn observe(window: usize, text: String) {
         return;
     }
     std::thread::spawn(move || {
+        let mut finalize = learning::Finalize(generation, false);
         use std::time::{Duration, Instant};
         update(generation, "正在定位听写输入框…", None);
         let mut first = None;
@@ -177,6 +187,7 @@ pub fn observe(window: usize, text: String) {
                 return;
             }
             if after != pending {
+                finalize.1 = false;
                 pending = after;
                 stable = Instant::now();
                 continue;
@@ -195,12 +206,17 @@ pub fn observe(window: usize, text: String) {
                             app: initial.app.clone(),
                             before: text.clone(),
                             after: pending.clone(),
+                            finalized: false,
                         },
                     );
-                    s.records.truncate(20);
+                    s.records.truncate(500);
                 }
                 s.status = "已捕获修改；仍在观察，返回此页可查看".into();
+                if let Err(error) = learning::save(&s) {
+                    s.status = format!("记录保存失败：{error}");
+                }
                 reported = pending.clone();
+                finalize.1 = pending != text;
             }
         }
         update(generation, "观察结束（60 秒）；下一次听写会重新开始", None);

@@ -185,6 +185,7 @@ macro_rules! app_invoke_handler_desktop {
             personal_devices::get_personal_devices,
             edit_capture::get_edit_capture,
             edit_capture::configure_edit_capture,
+            edit_capture::learning::undo_edit_learning,
             personal_devices::set_personal_microphone,
             commands::get_startup_snapshot,
             commands::get_settings,
@@ -558,6 +559,7 @@ fn run_desktop() {
     #[cfg(not(target_os = "windows"))]
     let coordinator = Arc::new(coordinator::Coordinator::new());
     let core_backend = coordinator.backend();
+    edit_capture::initialize(&core_backend);
     // 启动时把偏好里的 active ASR 同步进凭据库；get_credentials 按凭据库的 active 渠道取密钥。
     let startup_active_asr = core_backend.get_preferences().active_asr_provider;
     if !startup_active_asr.is_empty() {
