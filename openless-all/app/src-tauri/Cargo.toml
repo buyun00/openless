@@ -145,10 +145,16 @@ tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2"
 # scripts/ci-disable-macos-qwen3.mjs 删掉本行来规避。
 qwen3-asr-rs = { path = "vendor/qwen3-asr-rs", default-features = false, features = ["mlx"] }
 [target.'cfg(target_os = "windows")'.dependencies]
+dji-device = { package = "device", path = "vendor/dji-mic-control/crates/device" }
+dji-protocol = { package = "protocol", path = "vendor/dji-mic-control/crates/protocol" }
 foundry-local-sdk = { version = "=1.2.1", features = ["winml"] }
 raw-window-handle = "0.6"
 sherpa-onnx = { version = "1.13.2", default-features = false, features = ["static"] }
 windows = { version = "0.58", features = [
+  "Devices_Bluetooth",
+  "Foundation",
+  "Win32_Devices_DeviceAndDriverInstallation",
+  "Win32_Devices_Properties",
   "Win32_Foundation",
   "Win32_Globalization",
   "Win32_Graphics_Dwm",

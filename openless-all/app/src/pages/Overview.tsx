@@ -26,6 +26,7 @@ import type { ActivityDay, CredentialsStatus, DictationSession, PolishMode } fro
 import { useHotkeySettings } from '../state/HotkeySettingsContext';
 import { Btn, Card, PageHeader, Pill } from './_atoms';
 import { ASR_LABELS } from './settings/shared';
+import { PersonalDeviceCards } from '../components/PersonalDeviceCards';
 
 function useModeLabels(): Record<PolishMode, string> {
   const { t } = useTranslation();
@@ -252,8 +253,7 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
   const showProvidersSection = setup.providers.length === 0 || pendingProviders.length > 0;
 
   return (
-    // 单屏固定页：不滚动，撑满外壳给定的高度，所有仪表盘在一屏内
-    // 弹性分配；窗口压到很矮时由底部行内部收缩（最近识别列表内滚），页面本身不出滚动条。
+    // Device settings may expand; allow the overview to scroll in short windows.
     <div
       style={{
         display: 'flex',
@@ -262,6 +262,7 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
         minHeight: 0,
         minWidth: 0,
         gap: 14,
+        overflowY: 'auto',
       }}
     >
       <PageHeader
@@ -273,6 +274,8 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
           </Btn>
         }
       />
+
+      <PersonalDeviceCards />
 
       {showProvidersSection && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>

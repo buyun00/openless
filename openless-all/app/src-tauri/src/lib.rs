@@ -39,6 +39,7 @@ mod tauri_coordinator_host;
 // Linux 退化为纯轮询兜底。仅桌面端。详见 issue #470。
 #[cfg(not(mobile))]
 mod device_watch;
+mod personal_devices;
 mod endpoint_security;
 mod external_url;
 #[cfg(not(mobile))]
@@ -178,6 +179,8 @@ pub fn run() {
 macro_rules! app_invoke_handler_desktop {
     () => {
         tauri::generate_handler![
+            personal_devices::get_personal_devices,
+            personal_devices::set_personal_microphone,
             commands::get_startup_snapshot,
             commands::get_settings,
             commands::get_default_style_system_prompts,
