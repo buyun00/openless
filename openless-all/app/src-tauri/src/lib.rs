@@ -40,6 +40,7 @@ mod tauri_coordinator_host;
 #[cfg(not(mobile))]
 mod device_watch;
 mod personal_devices;
+mod edit_capture;
 mod endpoint_security;
 mod external_url;
 #[cfg(not(mobile))]
@@ -164,6 +165,8 @@ pub(crate) fn set_backend_preferences_for_test(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    edit_capture::run_worker_if_requested();
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     asr::local::run_mlx_worker_if_requested();
 
@@ -180,6 +183,8 @@ macro_rules! app_invoke_handler_desktop {
     () => {
         tauri::generate_handler![
             personal_devices::get_personal_devices,
+            edit_capture::get_edit_capture,
+            edit_capture::configure_edit_capture,
             personal_devices::set_personal_microphone,
             commands::get_startup_snapshot,
             commands::get_settings,

@@ -2725,6 +2725,8 @@ where
 
 impl CoreTextInserter for TauriTextInserter {
     fn capture_target(&self) -> Option<Arc<dyn CoreTextInserter>> {
+        #[cfg(target_os = "windows")]
+        crate::edit_capture::cancel_watch();
         Some(Arc::new(Self {
             insertion_target: Some(crate::selection::capture_selection_insertion_target()),
             ..self.clone()
@@ -2795,6 +2797,8 @@ impl CoreTextInserter for TauriTextInserter {
                 insertion_target,
                 finished: Arc::new(AtomicBool::new(false)),
                 #[cfg(target_os = "windows")]
+                captured_text: Arc::new(Mutex::new(String::new())),
+                #[cfg(target_os = "windows")]
                 windows_ime,
                 #[cfg(target_os = "windows")]
                 prepared: Arc::new(Mutex::new(prepared)),
@@ -2811,6 +2815,8 @@ impl CoreTextInserter for TauriTextInserter {
 
 #[derive(Clone)]
 struct TauriTextInsertionSession {
+    #[cfg(target_os = "windows")]
+    captured_text: Arc<Mutex<String>>,
     session_id: SessionId,
     context: Arc<DictationContext>,
     insertion_target: crate::selection::SelectionInsertionTarget,
@@ -2875,6 +2881,8 @@ impl TauriTextInsertionSession {
                     format!("join Tauri streaming insertion task: {error}"),
                 )
             })?;
+            #[cfg(target_os = "windows")]
+            self.captured_text.lock().extend(text.chars().take(written));
             Ok(InsertWriteResult {
                 written_chars: written,
             })
@@ -3051,6 +3059,8 @@ impl TextInsertionSession for TauriTextInsertionSession {
                     "text insertion session is already closed",
                 ));
             }
+            #[cfg(target_os = "windows")]
+            let capture_text = if final_text.is_empty() { session.captured_text.lock().clone() } else { final_text.clone() };
             let result = if final_text.is_empty() {
                 Ok(InsertOutcome::Inserted)
             } else {
@@ -3060,6 +3070,12 @@ impl TextInsertionSession for TauriTextInsertionSession {
                 // 恢复输入源失败并不能撤销已经落下的文字。保留真实交付结果，
                 // 避免历史误报失败后诱导用户重试造成重复；无论插入成败都记录恢复错误。
                 log::warn!("[core-adapter] restore input state after insertion failed: {error}");
+            }
+            #[cfg(target_os = "windows")]
+            if matches!(&result, Ok(InsertOutcome::Inserted | InsertOutcome::PasteSent)) {
+                if let Some(window) = session.insertion_target.edit_capture_window() {
+                    crate::edit_capture::observe(window, capture_text);
+                }
             }
             result
         })

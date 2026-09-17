@@ -56,6 +56,13 @@ pub(crate) struct SelectionInsertionTarget {
 }
 
 #[cfg(target_os = "windows")]
+impl SelectionInsertionTarget {
+    pub(crate) fn edit_capture_window(&self) -> Option<usize> {
+        self.windows.map(|target| target.foreground_window)
+    }
+}
+
+#[cfg(target_os = "windows")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct WindowsSelectionTarget {
     foreground_window: usize,

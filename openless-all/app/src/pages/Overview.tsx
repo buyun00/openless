@@ -6,7 +6,6 @@ import { Icon } from '../components/Icon';
 import { getActivityStats, getCredentials, listHistory } from '../lib/ipc';
 import { Heatmap } from '../components/Heatmap';
 import { useMobileLayout } from '../lib/useMobileLayout';
-import { countCodePoints } from '../lib/unicode';
 import {
   formatHistoryTime,
   formatLocaleDate,
@@ -24,8 +23,10 @@ import {
 } from '../lib/activityMetrics';
 import type { ActivityDay, CredentialsStatus, DictationSession, PolishMode } from '../lib/types';
 import { useHotkeySettings } from '../state/HotkeySettingsContext';
-import { Btn, Card, PageHeader, Pill } from './_atoms';
+import { Btn, Card, Pill } from './_atoms';
 import { ASR_LABELS } from './settings/shared';
+import { EditCaptureCard } from '../components/EditCaptureCard';
+import { detectOS } from '../components/WindowChrome';
 import { PersonalDeviceCards } from '../components/PersonalDeviceCards';
 
 function useModeLabels(): Record<PolishMode, string> {
@@ -214,15 +215,16 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
   }, [refreshCredentials]);
 
   const metrics = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todays = history.filter((s) => new Date(s.createdAt) >= today);
-    const charsToday = todays.reduce((acc, s) => acc + countCodePoints(s.finalText), 0);
-    const segmentsToday = todays.length;
-    const totalDurationMs = todays.reduce((acc, s) => acc + (s.durationMs ?? 0), 0);
-    const avgLatencyMs = segmentsToday > 0 ? totalDurationMs / segmentsToday : 0;
-    return { charsToday, segmentsToday, totalDurationMs, avgLatencyMs };
-  }, [history]);
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const daily = activity?.find((day) => day.date === today);
+    return {
+      charsToday: daily?.chars ?? 0,
+      durationToday: daily?.durationMs ?? 0,
+      charsTotal: (activity ?? []).reduce((sum, day) => sum + (day.chars ?? 0), 0),
+      durationTotal: (activity ?? []).reduce((sum, day) => sum + (day.durationMs ?? 0), 0),
+    };
+  }, [activity]);
 
   // 周期指标：近 7 天 / 近 30 天 × 条数 / 字数 / 时长。
   //
@@ -266,15 +268,55 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
         overflowY: 'auto',
       }}
     >
-      <PageHeader
-        compact
-        title={t('overview.title')}
-        right={
-          <Btn size="sm" icon="refresh" onClick={refreshAll}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 16,
+          flexShrink: 0,
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 650 }}>概览</h1>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            gap: mobile ? 16 : 28,
+          }}
+        >
+          {[
+            ['今日字数', String(metrics.charsToday), 'hash'],
+            ['今日总时长', formatLongDuration(metrics.durationToday, t, locale), 'clock'],
+            ['累计字数', String(metrics.charsTotal), 'doc'],
+            ['累计总时长', formatLongDuration(metrics.durationTotal, t, locale), 'history'],
+          ].map(([label, value, icon]) => (
+            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <span
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  fontSize: 11,
+                  color: 'var(--ol-ink-3)',
+                }}
+              >
+                <Icon name={icon} size={13} style={{ color: 'var(--ol-blue)' }} />
+                {label}
+              </span>
+              <strong style={{ fontSize: 20, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                {activityError || activity === null ? '—' : value}
+              </strong>
+            </div>
+          ))}
+          <Btn size="sm" variant="ghost" icon="refresh" onClick={refreshAll}>
             {t('overview.refresh')}
           </Btn>
-        }
-      />
+        </div>
+      </header>
 
       <PersonalDeviceCards />
 
@@ -340,74 +382,29 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
         </div>
       )}
 
-      {/* 使用记录：标题 + 四张指标卡为一组。 */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-        <h2 style={{ fontSize: 13, fontWeight: 600, color: 'var(--ol-ink-2)', margin: 0 }}>
-          {t('overview.statsTitle')}
-        </h2>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: mobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
-            gap: 12,
-          }}
-        >
-          <Metric
-            icon="hash"
-            label={t('overview.metricChars')}
-            value={historyError ? '—' : formatLocaleNumber(metrics.charsToday, locale)}
-            trend={
-              historyError
-                ? t('overview.historyLoadError')
-                : t('overview.metricSegments', { count: metrics.segmentsToday })
-            }
-          />
-          <Metric
-            icon="mic"
-            label={t('overview.metricDuration')}
-            value={historyError ? '—' : formatDuration(metrics.totalDurationMs, t, locale)}
-            trend={historyError ? t('overview.historyLoadError') : ''}
-          />
-          <Metric
-            icon="clock"
-            label={t('overview.metricAvg')}
-            value={historyError ? '—' : formatDuration(metrics.avgLatencyMs, t, locale)}
-            trend={
-              historyError
-                ? t('overview.historyLoadError')
-                : metrics.segmentsToday > 0
-                  ? t('overview.metricAvgTrend')
-                  : t('overview.metricNoData')
-            }
-          />
-          <Metric
-            icon="bolt"
-            label={t('overview.metricTotal')}
-            value={historyError ? '—' : formatLocaleNumber(history.length, locale)}
-            trend={historyError ? t('overview.historyLoadError') : t('overview.metricTotalTrend')}
-          />
-        </div>
-      </div>
-
       {/* Keep both cards readable; overflow belongs to the overview, not compressed grid rows. */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: mobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1.4fr)',
-          gridAutoRows: 'minmax(320px, auto)',
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          gridAutoRows: 'auto',
           gap: 12,
           flex: '0 0 auto',
         }}
       >
-        <PeriodMetricsCard
-          series={series}
-          period={period}
-          metric={metric}
-          onPeriodChange={setPeriod}
-          onMetricChange={setMetric}
-          loadError={activityError}
-          onRetry={refreshActivity}
-        />
+        {desktop && detectOS() === 'win' ? (
+          <EditCaptureCard />
+        ) : (
+          <PeriodMetricsCard
+            series={series}
+            period={period}
+            metric={metric}
+            onPeriodChange={setPeriod}
+            onMetricChange={setMetric}
+            loadError={activityError}
+            onRetry={refreshActivity}
+          />
+        )}
 
         <Card
           padding={0}
@@ -431,7 +428,7 @@ export function Overview({ onOpenHistory, onOpenSettings }: OverviewProps) {
             </Btn>
           </div>
           <div
-            className="ol-thinscroll"
+            className="ol-noscrollbar"
             style={{ flex: 1, minHeight: 0, maxHeight: 320, overflowY: 'auto' }}
           >
             {historyError ? (
@@ -619,45 +616,6 @@ function ActivityHeatmapCard({ activity }: { activity: ActivityDay[] }) {
         dateDisplay={labels.date}
         valueDisplay={(count) => t('overview.activityCount', { count })}
       />
-    </Card>
-  );
-}
-
-interface MetricProps {
-  icon: string;
-  label: string;
-  value: string;
-  trend: string;
-}
-
-function Metric({ icon, label, value, trend }: MetricProps) {
-  return (
-    <Card padding={14} style={{ minWidth: 0 }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 8,
-          color: 'var(--ol-ink-3)',
-        }}
-      >
-        <Icon name={icon} size={13} />
-        <span style={{ fontSize: 13 }}>{label}</span>
-      </div>
-      <div
-        style={{
-          fontSize: 22,
-          fontWeight: 600,
-          letterSpacing: '-0.02em',
-          color: 'var(--ol-ink)',
-          lineHeight: 1.2,
-          overflowWrap: 'anywhere',
-        }}
-      >
-        {value}
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--ol-ink-4)', marginTop: 6 }}>{trend || ' '}</div>
     </Card>
   );
 }

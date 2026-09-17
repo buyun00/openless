@@ -523,7 +523,7 @@ function FloatingShellBody({
                 padding: mobile
                   ? '16px 16px calc(16px + env(safe-area-inset-bottom, 0px) + 56px)'
                   : displayTab === 'overview'
-                    ? `${os === 'mac' ? 80 : 56}px 28px 24px`
+                    ? `${os === 'mac' ? 48 : 12}px 28px 24px`
                     : `${os === 'mac' ? 80 : 56}px 28px 32px`,
                 // position:relative 让页面里的"已保存"toast 用 absolute top:16 right:16
                 // 锚到这块控制台卡的右上角，而不是横在页头变成长横幅。
